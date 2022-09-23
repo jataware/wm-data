@@ -3,14 +3,15 @@ from tqdm import tqdm
 import geopandas as gpd
 import shapely
 import numpy as np
+import os
 
 import pdb
 
 indicator_codes = {
     "ws": "water stress",
     "sv": "seasonal variability",
-    "ut": "water demand", #[m/year] meters per year
-    "bt": "water supply", #[m/year] meters per year
+    "ut": "water demand", #[m^3/m^2/year] -> meters per year
+    "bt": "water supply", #[m^3/m^2/year] -> meters per year
 }
 year_codes = {
     "20": 2020,
@@ -78,11 +79,8 @@ class Scenario:
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning)
 
-def convert_shape(shape_file, cell_size=0.1):
+def convert_shape(shp, cell_size=0.1):
     """adapted from https://github.com/jataware/convert-shp-to-csv/blob/main/convert_shp_to_csv/main.py"""
-
-    # Convert a shape file to a geodataframe
-    shp = gpd.read_file(shape_file)
 
     # Pull list of data columns we want to include in the output
     # Basically, anything that is not the `geometry`
@@ -111,6 +109,7 @@ def convert_shape(shape_file, cell_size=0.1):
 
     # Join the shape file with the grid by overlaying the shape over the grid and then removing cells whose centers
     # are outside the defined shape(s).
+    # This is pretty slow btw, TBD if there's a faster method
     print('Joining shape file with grid...', end='', flush=True)
     gdf = gpd.sjoin(
         gridded,
@@ -134,16 +133,13 @@ def convert_shape(shape_file, cell_size=0.1):
 
 
 
-def main(shape_path, out_path):
-    
-    #convert the shapefile to a gridded dataframe
-    df = convert_shape(shape_path, cell_size=1.0)
-    
+def extract_years(df):
     columns_to_keep = {
         'latitude':'latitude', 
         'longitude':'longitude',
         'BasinID':'id',
-        'dwnBasinID': 'subid'
+        'dwnBasinID': 'subid',
+        'CONTINENT':'continent',
     }
     
     #collect columns that will be part of the output
@@ -162,19 +158,6 @@ def main(shape_path, out_path):
         
         cols.append(s)
 
-    ####### Only if you want to split m/y values evenly by the number of grid cells per basin #######
-    # #count number of times each basin id occurs
-    # basin_counts = dict(df['BasinID'].value_counts())
-    # to_norm = [col for col in cols if col.ii == 'ut' or col.ii == 'bt'] #only normalize baseline values
-    # new_rows = []
-    # for i, row in tqdm(df.iterrows(), total=len(df), desc='Normalizing volume values'):
-    #     row.update({col.raw: row[col.raw] / basin_counts[row['BasinID']] for col in to_norm})
-    #     new_rows.append(row)
-
-    # #convert the rows to a dataframe
-    # df = pd.DataFrame(new_rows)
-    
-
     #generate the new output dataframe
     rows = []
     for row in tqdm(df.iterrows(), total=len(df), desc='Processing rows'):
@@ -190,8 +173,7 @@ def main(shape_path, out_path):
             rows.append(out_row)
     out = pd.DataFrame(rows)
 
-    #save to csv
-    out.to_csv(out_path,index=False)
+    return out
 
 
 
@@ -200,7 +182,71 @@ def main(shape_path, out_path):
 
 
 if __name__ == '__main__':
-    # data_path = 'Y2019M07D12_Aqueduct30_V01/future_projections/annual/csv/aqueduct_projections_20150309.csv'
+
+    #paths
+    continents_path = 'World_Continents/World_Continents.shp'
     shape_path = 'Y2019M07D12_Aqueduct30_V01/future_projections/annual/shapefile/aqueduct_projections_20150309.shp'
-    out_path = 'out.csv'
-    main(shape_path, out_path)
+
+    out_dir = 'output'
+    if not os.path.exists(out_dir):
+        os.makedirs(out_dir)
+
+    #settings
+    cell_size=0.1
+
+    #split data files by unique values in these columns (set to None to skip splitting)
+    splits = ['continent']#, 'year']
+
+    #continent filter (set to None to skip filtering)
+    continents_to_keep = {'Africa'}#, 'Asia', 'Europe', 'North America', 'South America', 'Oceania'}
+
+
+    # Convert a shape file to a geodataframe (this includes the dataset data)
+    shape = gpd.read_file(shape_path)
+    original_columns = shape.columns
+    new_columns_to_keep = ['CONTINENT']
+    keep_fn = lambda x: x in new_columns_to_keep or x in original_columns
+
+    #spatially join shape with continents to figure out which continent each basin is in
+    #then remove the extra columns that were added by the join
+    continents = gpd.read_file(continents_path)
+    print('Joining continents to shape file...', end='', flush=True)
+    shape = gpd.sjoin(shape, continents)
+    shape.drop(columns=[col for col in shape.columns if not keep_fn(col)], inplace=True)
+    print('done')
+
+    #optional filter for a specific continent
+    if continents_to_keep is not None:
+        shape = shape[shape['CONTINENT'].isin(continents_to_keep)]
+
+
+    #convert the shapefile to a gridded dataframe
+    shape_frame = convert_shape(shape, cell_size=cell_size)
+
+    #run the process of extracting years from column names + renaming columns
+    out = extract_years(shape_frame)
+
+    #save the results    
+    if splits is not None:
+        #split the dataframe into multiple files according to the given columns
+        out_dir = os.path.join(out_dir, 'by ' + ', '.join(splits))
+        if not os.path.exists(out_dir):
+            os.makedirs(out_dir)
+        frames = [] #list of (name, dataframe) tuples
+        for name, group in out.groupby(splits):
+
+            if isinstance(name, tuple):
+                name = '_'.join([str(n) for n in name])
+            
+            #write the dataframes to csv
+            group.to_csv(os.path.join(out_dir, f'{name}.csv'), index=False)
+
+            #print the name and number of rows
+            print(f'saved {name}.csv: {len(group)} rows')
+
+    else:
+        #write a single csv
+        out.to_csv(os.path.join(out_dir, 'out.csv'), index=False)
+        print(f'saved out.csv: {len(out)} rows')
+
+
