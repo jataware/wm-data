@@ -4,7 +4,7 @@ import geopandas as gpd
 import shapely
 import numpy as np
 
-
+import pdb
 
 indicator_codes = {
     "ws": "water stress",
@@ -162,6 +162,18 @@ def main(shape_path, out_path):
         
         cols.append(s)
 
+
+    #count number of times each basin id occurs
+    basin_counts = dict(df['BasinID'].value_counts())
+    to_norm = [col for col in cols if col.ii == 'ut' or col.ii == 'bt'] #only normalize baseline values
+    new_rows = []
+    for i, row in tqdm(df.iterrows(), total=len(df), desc='Normalizing volume values'):
+        row.update({col.raw: row[col.raw] / basin_counts[row['BasinID']] for col in to_norm})
+        new_rows.append(row)
+
+    #convert the rows to a dataframe
+    df = pd.DataFrame(new_rows)
+    
 
     #generate the new output dataframe
     rows = []
