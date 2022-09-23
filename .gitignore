@@ -1,0 +1,8 @@
+output/
+World_Continents/
+Y2019M07D12_Aqueduct30_V01/
+
+.ipynb_checkpoints/
+
+*.csv
+*.zip
