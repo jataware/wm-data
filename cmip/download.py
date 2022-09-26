@@ -61,5 +61,7 @@ for variable in variables:
             for calc in calculation:
                 url = f'https://climatedata.worldbank.org/thredds/fileServer/CRM/cmip6/all-regridded-bct-{scenario}-climatology/{variable}/{p}/annual/climatology-{variable}-annual-mean/2020-2039/climatology-{variable}-annual-mean_cmip6_annual_all-regridded-bct-{scenario}-climatology_{p}_2020-2039.nc'
                 print(f'getting {[variable, p, scenario, calc]} from {url}')
-                call(['wget', url])
+                
+                #download to data/ directory
+                call(['wget', '-P', 'data/', url])
 
