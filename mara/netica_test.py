@@ -11,7 +11,8 @@ installation process
 
 #python prereqs:
 - cython
-- others?
+- pandas
+- maybe others?
 
 $ git clone git@github.com:Koenkk/NeticaPy3.git
 $ cd NeticaPy3
