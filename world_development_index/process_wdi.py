@@ -22,7 +22,7 @@ def main():
 
 
     #DEBUG. user should define what the groups are in indicator_groups.json
-    save_indicators(raw_data)
+    save_indicators(raw_data, series_info)
 
     #delete all CSVs and json files in output folder
     for filename in glob('output/*.csv') + glob('output/*.json'):
@@ -79,7 +79,7 @@ def download_data():
             print('Skipping unzip, data already exists')
         
 
-def save_indicators(df):
+def save_indicators(df, series_info):
     """For debugging purposes, create mock version of indicator_groups.json"""
 
     indicators = df['Indicator Code'].unique().tolist()
@@ -100,6 +100,11 @@ def save_indicators(df):
                 groups[second] = []
             groups[second].append(indicator)
 
+    
+    #TODO: maybe this returns names?
+    # abbrevs = find_abbreviations(groups, series_info)
+    
+    
     #collect all indicators in groups of size 1 and put them in a group called 'misc'
     misc = []
     todelete = []
@@ -232,7 +237,11 @@ def make_metadata(df, series_info, name, description):
                 "type": "float", #TODO: maybe check the datatype in df?
                 "unit": get_unit(info),
                 "unit_description": get_unit_description(info),
-                "ontologies": None,
+                "ontologies": {
+                    "concepts": [],
+                    "processes": [],
+                    "properties": []
+                },
                 "is_primary": True,
                 "data_resolution": {
                     "temporal_resolution": "annual",
@@ -252,8 +261,12 @@ def make_metadata(df, series_info, name, description):
                 "type": "datetime",
                 "unit": "ms",
                 "unit_description": "milliseconds since January 1, 1970",
-                "ontologies": None,
-                "related_features": None
+                "ontologies": {
+                    "concepts": [],
+                    "processes": [],
+                    "properties": []
+                },
+                "related_features": []
             },
             {
                 "name": "country",
@@ -262,8 +275,12 @@ def make_metadata(df, series_info, name, description):
                 "type": "country",
                 "unit": None,
                 "unit_description": None,
-                "ontologies": None,
-                "related_features": None
+                "ontologies": {
+                    "concepts": [],
+                    "processes": [],
+                    "properties": []
+                },
+                "related_features": []
             }
         ],
         "tags": [],
@@ -285,6 +302,126 @@ def make_metadata(df, series_info, name, description):
     return meta
     
 
+
+code_abbreviations = {
+    'EG': '',
+    'FX': '',
+    'SE': '',
+    'PRM': '',
+    'NY': '',
+    'SP': '',
+    'SEC': '',
+    'SH': '',
+    'HIV': '',
+    'AG': '',
+    'EN': '',
+    'TX': '',
+    'TM': '',
+    'NV': '',
+    'IS': '',
+    'ER': '',
+    'SI': '',
+    'STA': '',
+    'MS': '',
+    'FB': '',
+    'IC': '',
+    'SL': '',
+    'TLF': '',
+    'FD': '',
+    'VC': '',
+    'FM': '',
+    'DTH': '',
+    'GC': '',
+    'NE': '',
+    'BM': '',
+    'BX': '',
+    'AGR': '',
+    'MNF': '',
+    'SRV': '',
+    'SLF': '',
+    'FAM': '',
+    'WAG': '',
+    'MLR': '',
+    'FS': '',
+    'DT': '',
+    'MED': '',
+    'COM': '',
+    'CON': '',
+    'FP': '',
+    'SN': '',
+    'IQ': '',
+    'BN': '',
+    'XPD': '',
+    'PA': '',
+    'FPL': '',
+    'FR': '',
+    'TER': '',
+    'EMP': '',
+    'IND': '',
+    'IT': '',
+    'GDP': '',
+    'HD': '',
+    'IMM': '',
+    'TBS': '',
+    'UHC': '',
+    'IP': '',
+    'SM': '',
+    'ST': '',
+    'IE': '',
+    'LP': '',
+    'MMR': '',
+    'CM': '',
+    'ADT': '',
+    'TG': '',
+    'DYN': '',
+    'TT': '',
+    'DC': '',
+    'VAC': '',
+    'SGR': '',
+    'H2O': '',
+    'PRE': '',
+    'ANM': '',
+    'PRG': '',
+    'PRV': '',
+    'SVR': '',
+    'GF': '',
+    'SG': '',
+    'EP': '',
+    'PX': '',
+    'GB': '',
+    'ENR': '',
+    'UEM': '',
+    'ALC': '',
+    'FI': '',
+    'BG': '',
+}
+
+
+def find_abbreviations(all_codes, info):
+    #separate out codes that contain lower case letters
+    auto = [code for code in all_codes if not any([char.islower() for char in code])]
+    manual = [code for code in all_codes if code not in set(auto)]
+    
+    chunks = {chunk:all_codes[code] for code in auto for chunk in code.split('.')}
+    
+    for chunk, codes in chunks.items():
+        #collect lines from info where info['Series Code'] is in codes
+        codes = set(codes)
+        lines = info[info['Series Code'].isin(codes)]
+
+        topics = lines['Topic'].unique().tolist()
+        names = lines['Indicator Name'].unique().tolist()
+        shortdefs = lines['Short definition'].unique().tolist()
+        longdefs = lines['Long definition'].unique().tolist()
+
+        #get a single string that combines with space all lines['Topic'], lines['Indicator Name'], lines['Short Definition'],  lines['Long Definition']
+        # lines = lines['Topic'].tolist() + lines['Indicator Name'].tolist() + lines['Short definition'].tolist()# + lines['Long definition'].tolist()
+        # lines = set([line for line in lines if not pd.isnull(line)])
+        pdb.set_trace()
+        # text = '\n'.join()
+    
+    pdb.set_trace()
+    
 
 
 if __name__ == '__main__':
