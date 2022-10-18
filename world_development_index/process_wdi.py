@@ -200,13 +200,18 @@ def make_metadata(df, series_info, name, description):
         return ret
     
     def get_unit(info) -> str:
-        unit = info.get('Unit of measure', None)
+        unit = None
+        try:
+            #sometimes units are at the end of the indicator name (e.g. 'GDP (current US$)')
+            name:str = info['Indicator Name']
+            if name.endswith(')'):
+                unit = name[name.rfind('(')+1:-1]
+        except:
+            unit = None
+        if unit is None:
+            unit = info.get('Unit of measure', None)
         if pd.isnull(unit):
-            try:
-                #sometimes units are at the end of the indicator name (e.g. 'GDP (current US$)')
-                unit = info['Indicator Name'].split('(')[-1].split(')')[0]
-            except:
-                unit = 'NA'
+            unit = 'NA'
         return unit
         
     def get_unit_description(info) -> str:
