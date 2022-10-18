@@ -2,6 +2,7 @@ import pandas as pd
 import json
 from subprocess import call
 import os
+from glob import glob
 from zipfile import ZipFile
 from tqdm import tqdm
 from datetime import datetime, timezone
@@ -21,7 +22,11 @@ def main():
 
 
     #DEBUG. user should define what the groups are in indicator_groups.json
-    save_indicators(raw_data) 
+    save_indicators(raw_data)
+
+    #delete all CSVs in output folder
+    for filename in glob('output/*.csv'):
+        os.remove(filename)
 
 
     for name, indicators in tqdm(indicator_groups(), total=sum(1 for _ in indicator_groups()), desc='Making datasets'):
@@ -30,7 +35,7 @@ def main():
         description = f'World Bank Development Indicators: {", ".join(indicators)}'
 
         #collect all rows in df that have an indicator in indicators
-        df_subset = raw_data[raw_data['Indicator Name'].isin(set(indicators))]
+        df_subset = raw_data[raw_data['Indicator Code'].isin(set(indicators))]
 
         #make dataset 
         df = make_dataset(df_subset, country_codes)
@@ -77,11 +82,26 @@ def download_data():
 def save_indicators(df):
     """For debugging purposes, create mock version of indicator_groups.json"""
 
-    indicators = df['Indicator Name'].unique().tolist() #maybe use 'Indicator Code' instead
-    
-    # indicators_lists = [indicators] #default case: all indicators in one list
-    indicators = [indicators[i:i+10] for i in range(0, len(indicators), 10)] #group by 10
-    indicators = {f'wdi_{i}': indicator for i, indicator in enumerate(indicators)}
+    indicators = df['Indicator Code'].unique().tolist()
+    firsts = [indicator.split('.')[0] for indicator in indicators]
+    # seconds = [f"{first}.{indicator.split('.')[1]}" for first, indicator in zip(firsts,indicators)]
+    first_counts = {first: firsts.count(first) for first in set(firsts)}
+
+    groups = {}
+    for indicator, first in zip(indicators, firsts):
+        count = first_counts[first]
+        if count < 100:
+            if first not in groups:
+                groups[first] = []
+            groups[first].append(indicator)
+        else:
+            second = f"{first}.{indicator.split('.')[1]}"
+            if second not in groups:
+                groups[second] = []
+            groups[second].append(indicator)
+
+    #map from name of group to its indicators
+    indicators = {f"World_Development_Indicators.{name}": indicators for name, indicators in groups.items()}
 
     with open('indicator_groups.json', 'w') as f:
         json.dump(indicators, f)
@@ -248,11 +268,3 @@ def make_metadata(df, series_info, name, description):
 
 if __name__ == '__main__':
     main()
-
-
-#see if theres a logical way to split up the features
-#no more than 100 features per dataset
-#can't go by country
-
-#perhaps have a step to select features to include
-#work with kyle later about plugin for injecting the data into dojo
