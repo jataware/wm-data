@@ -24,8 +24,8 @@ def main():
     #DEBUG. user should define what the groups are in indicator_groups.json
     save_indicators(raw_data)
 
-    #delete all CSVs in output folder
-    for filename in glob('output/*.csv'):
+    #delete all CSVs and json files in output folder
+    for filename in glob('output/*.csv') + glob('output/*.json'):
         os.remove(filename)
 
 
@@ -100,11 +100,32 @@ def save_indicators(df):
                 groups[second] = []
             groups[second].append(indicator)
 
+    #collect all indicators in groups of size 1 and put them in a group called 'misc'
+    misc = []
+    todelete = []
+    for group, indicators in groups.items():
+        if len(indicators) == 1:
+            misc.append(indicators[0])
+            todelete.append(group)
+    for group in todelete:
+        del groups[group]
+    groups['misc'] = misc
+    
     #map from name of group to its indicators
     indicators = {f"World_Development_Indicators.{name}": indicators for name, indicators in groups.items()}
 
     with open('indicator_groups.json', 'w') as f:
         json.dump(indicators, f)
+
+    #DEBUG plot a histogram of the number of indicators in each group
+    # from matplotlib import pyplot as plt
+    # counts = sorted([len(indicators) for indicators in groups.values()])
+    # print(counts)
+    # plt.hist(counts, bins=100)
+    # plt.xlabel('Number of indicators in group')
+    # plt.ylabel('Number of groups')
+    # plt.title('Indicator Group Sizes')
+    # plt.show()
 
 
 
