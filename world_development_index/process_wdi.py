@@ -14,7 +14,7 @@ def main():
     download_data()
 
     raw_data = pd.read_csv('data/WDIData.csv')
-
+    print(__name__)
     #list of valid country codes
     countries = pd.read_csv('country.csv')
     country_codes = set(countries['Alpha-3_Code'].tolist())
@@ -24,8 +24,8 @@ def main():
     save_indicators(raw_data, series_info)
 
     #delete all CSVs and json files in output folder
-    for filename in glob('output/*.csv') + glob('output/*.json'):
-        os.remove(filename)
+    # for filename in glob('output/*.csv') + glob('output/*.json'):
+    #     os.remove(filename)
 
 
     for name, indicators in tqdm(indicator_groups(), total=sum(1 for _ in indicator_groups()), desc='Making datasets'):
@@ -139,7 +139,8 @@ def indicator_groups():
         groups = json.load(f)
 
     for name, group in groups.items():
-        yield name, group
+        if name == "WDI - balance_exports" or name == "WDI - agricultural":
+            yield name, group
 
 
 
